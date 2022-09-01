@@ -134,6 +134,7 @@ func (h *handler) getClusterInfo(c *gin.Context) {
 	clusterName := c.Query("cluster")
 	clusterStatus := c.Query("status")
 	projectName := c.Query("project")
+	nodeLabelSelector := c.Query("labelSelector")
 
 	switch {
 	// find cluster by given name
@@ -168,7 +169,13 @@ func (h *handler) getClusterInfo(c *gin.Context) {
 		clusterList = clusters
 	}
 
-	infos, err := makeClusterInfos(c.Request.Context(), clusterList, cli, clusterStatus)
+	selector, err := labels.Parse(nodeLabelSelector)
+	if err != nil {
+		response.FailReturn(c, errcode.CustomReturn(http.StatusBadRequest, "labels selector invalid: %v", err))
+		return
+	}
+
+	infos, err := makeClusterInfos(c.Request.Context(), clusterList, cli, clusterStatus, selector)
 	if err != nil {
 		clog.Error(err.Error())
 		response.FailReturn(c, errcode.InternalServerError)
