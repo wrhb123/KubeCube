@@ -271,14 +271,21 @@ func (h *handler) getClusterNames(c *gin.Context) {
 // @Router /api/v1/cube/clusters/resources  [get]
 func (h *handler) getClusterResource(c *gin.Context) {
 	cluster := c.Query("cluster")
+	nodeLabelSelector := c.Query("labelSelector")
 	cli := clients.Interface().Kubernetes(cluster)
 	if cli == nil {
 		response.FailReturn(c, errcode.ClusterNotFoundError(cluster))
 		return
 	}
 
+	selector, err := labels.Parse(nodeLabelSelector)
+	if err != nil {
+		response.FailReturn(c, errcode.CustomReturn(http.StatusBadRequest, "labels selector invalid: %v", err))
+		return
+	}
+
 	nodes := v1.NodeList{}
-	err := cli.Cache().List(c.Request.Context(), &nodes)
+	err = cli.Cache().List(c.Request.Context(), &nodes, &client.ListOptions{LabelSelector: selector})
 	if err != nil {
 		clog.Error("get cluster %v nodes failed: %v", cluster, err)
 		response.FailReturn(c, errcode.InternalServerError)
