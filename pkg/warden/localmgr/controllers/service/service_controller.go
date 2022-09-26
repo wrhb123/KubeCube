@@ -61,7 +61,7 @@ func (s *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 func (s *ServiceReconciler) UpdateExternalAccess(ctx context.Context, namespaceName types.NamespacedName, svc *v1.Service) (ctrl.Result, error) {
 	clog.Debug("start update service external access: %+v", namespaceName)
-	externalHandler := service.NewExternalAccess(s.Client, namespaceName.Namespace, namespaceName.Name, filter.Filter{Limit: 10}, s.NginxNamespace, s.NginxTcpServiceConfigMap, s.NginxUdpServiceConfigMap)
+	externalHandler := service.NewExternalAccess(s.Client, namespaceName.Namespace, namespaceName.Name, filter.NewEmptyFilter(), s.NginxNamespace, s.NginxTcpServiceConfigMap, s.NginxUdpServiceConfigMap)
 	oldInfo, err := externalHandler.GetExternalAccess()
 	if err != nil {
 		clog.Error("get external access info fail, %+v", err)
@@ -88,7 +88,7 @@ func (s *ServiceReconciler) UpdateExternalAccess(ctx context.Context, namespaceN
 
 func (s *ServiceReconciler) DeleteExternalAccess(ctx context.Context, namespaceName types.NamespacedName) (ctrl.Result, error) {
 	clog.Debug("start delete service external access: %+v", namespaceName)
-	externalHandler := service.NewExternalAccess(s.Client, namespaceName.Namespace, namespaceName.Name, filter.Filter{Limit: 10}, s.NginxNamespace, s.NginxTcpServiceConfigMap, s.NginxUdpServiceConfigMap)
+	externalHandler := service.NewExternalAccess(s.Client, namespaceName.Namespace, namespaceName.Name, filter.NewEmptyFilter(), s.NginxNamespace, s.NginxTcpServiceConfigMap, s.NginxUdpServiceConfigMap)
 	err := externalHandler.DeleteExternalAccess()
 	if err != nil {
 		clog.Debug("delete service external access error, %+v", err)
