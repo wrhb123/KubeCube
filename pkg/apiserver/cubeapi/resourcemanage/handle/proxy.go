@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"net/http"
 	"net/http/httputil"
+	url2 "net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -38,7 +39,6 @@ import (
 	"github.com/kubecube-io/kubecube/pkg/conversion"
 	"github.com/kubecube-io/kubecube/pkg/multicluster"
 	"github.com/kubecube-io/kubecube/pkg/utils/constants"
-	"github.com/kubecube-io/kubecube/pkg/utils/ctls"
 	"github.com/kubecube-io/kubecube/pkg/utils/errcode"
 	"github.com/kubecube-io/kubecube/pkg/utils/filter"
 	"github.com/kubecube-io/kubecube/pkg/utils/kubeconfig"
@@ -148,17 +148,10 @@ func (h *ProxyHandler) ProxyHandle(c *gin.Context) {
 
 	c.Request.Header.Set(constants.ImpersonateUserKey, "admin")
 
-	// get cluster info by cluster name
-	host, certData, keyData, caData := getClusterInfo(cluster)
-	if host == "" {
-		response.FailReturn(c, errcode.ClusterNotFoundError(cluster))
-		return
-	}
-
-	ts, err := ctls.MakeMTlsTransportByPem(caData, certData, keyData)
+	internalCluster, err := multicluster.Interface().Get(cluster)
 	if err != nil {
 		clog.Error(err.Error())
-		response.FailReturn(c, errcode.InternalServerError)
+		response.FailReturn(c, errcode.CustomReturn(http.StatusBadRequest, err.Error()))
 		return
 	}
 
@@ -178,9 +171,13 @@ func (h *ProxyHandler) ProxyHandle(c *gin.Context) {
 
 	// create director
 	director := func(req *http.Request) {
-		req.URL.Scheme = "https"
-		req.URL.Host = host
-		req.Host = host
+		uri, err := url2.ParseRequestURI(internalCluster.Config.Host)
+		if err != nil {
+			clog.Error("Could not parse host, host: %s , err: %v", internalCluster.Config.Host, err)
+			response.FailReturn(c, errcode.CustomReturn(http.StatusBadRequest, "Could not parse host, host: %s , err: %v", internalCluster.Config.Host, err))
+		}
+		req.URL = uri
+		req.Host = internalCluster.Config.Host
 		req.URL.Path = url
 
 		if needConvert {
@@ -218,7 +215,7 @@ func (h *ProxyHandler) ProxyHandle(c *gin.Context) {
 		filter.RawGvr = gvr
 	}
 
-	requestProxy := &httputil.ReverseProxy{Director: director, Transport: ts, ModifyResponse: filter.ModifyResponse, ErrorHandler: errorHandler}
+	requestProxy := &httputil.ReverseProxy{Director: director, Transport: *internalCluster.Transport, ModifyResponse: filter.ModifyResponse, ErrorHandler: errorHandler}
 
 	// trim auth token here
 	c.Request.Header.Del(constants.AuthorizationHeader)

@@ -54,7 +54,12 @@ func InitFakeMultiClusterMgrWithOpts(opts *fake.Options) {
 	c.Client = fake.NewFakeClients(opts)
 	c.Config = &rest.Config{Host: "127.0.0.1", ContentConfig: rest.ContentConfig{GroupVersion: &v1.SchemeGroupVersion, NegotiatedSerializer: scheme.Codecs}}
 
-	err := m.Add(constants.LocalCluster, c)
+	ts, err := rest.TransportFor(c.Config)
+	if err != nil {
+		clog.Fatal("load RoundTripper failed: %v", err)
+	}
+	c.Transport = &ts
+	err = m.Add(constants.LocalCluster, c)
 	if err != nil {
 		clog.Fatal("init multi cluster mgr failed: %v", err)
 	}

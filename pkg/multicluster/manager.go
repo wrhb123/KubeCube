@@ -19,19 +19,21 @@ package multicluster
 import (
 	"context"
 	"fmt"
-	"github.com/kubecube-io/kubecube/pkg/multicluster/client"
-	"github.com/kubecube-io/kubecube/pkg/multicluster/scout"
-	"github.com/kubecube-io/kubecube/pkg/utils/exit"
-	"k8s.io/apimachinery/pkg/version"
+	"net/http"
 	"sync"
 	"time"
 
-	clusterv1 "github.com/kubecube-io/kubecube/pkg/apis/cluster/v1"
-	"github.com/kubecube-io/kubecube/pkg/clog"
-	"github.com/kubecube-io/kubecube/pkg/utils/constants"
-	"github.com/kubecube-io/kubecube/pkg/utils/kubeconfig"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	clusterv1 "github.com/kubecube-io/kubecube/pkg/apis/cluster/v1"
+	"github.com/kubecube-io/kubecube/pkg/clog"
+	"github.com/kubecube-io/kubecube/pkg/multicluster/client"
+	"github.com/kubecube-io/kubecube/pkg/multicluster/scout"
+	"github.com/kubecube-io/kubecube/pkg/utils/constants"
+	"github.com/kubecube-io/kubecube/pkg/utils/exit"
+	"github.com/kubecube-io/kubecube/pkg/utils/kubeconfig"
 )
 
 // clusterType indicates the internal cluster type
@@ -58,10 +60,16 @@ func newMultiClusterMgr() *MultiClustersMgr {
 		clog.Warn("get kubeconfig failed: %v, only allowed when testing", err)
 		return nil
 	}
+	ts, err := rest.TransportFor(config)
+	if err != nil {
+		clog.Warn("load RoundTripper failed: %v", err)
+		return nil
+	}
 
 	c := new(InternalCluster)
 	c.StopCh = make(chan struct{})
 	c.Config = config
+	c.Transport = &ts
 	c.Type = LocalCluster
 	c.Client, err = client.NewClientFor(exit.SetupCtxWithStop(context.Background(), c.StopCh), config)
 	if err != nil {
@@ -99,6 +107,9 @@ type InternalCluster struct {
 	// Config bind to a real cluster
 	Config *rest.Config
 
+	// Transport bind to a real cluster round tripper
+	Transport *http.RoundTripper
+
 	// Version the k8s Version about internal cluster
 	Version *version.Info
 
@@ -115,7 +126,10 @@ func NewInternalCluster(cluster clusterv1.Cluster) (*InternalCluster, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load kubeconfig failed: %v", err)
 	}
-
+	ts, err := rest.TransportFor(config)
+	if err != nil {
+		return nil, fmt.Errorf("load RoundTripper failed: %v", err)
+	}
 	// allocate mem address to avoid nil
 	cluster.Status.State = new(clusterv1.ClusterState)
 
@@ -130,6 +144,7 @@ func NewInternalCluster(cluster clusterv1.Cluster) (*InternalCluster, error) {
 	c.Name = cluster.Name
 	c.StopCh = make(chan struct{})
 	c.Config = config
+	c.Transport = &ts
 	c.Type = clusterType
 	c.RawCluster = cluster.DeepCopy()
 	c.Client, err = client.NewClientFor(exit.SetupCtxWithStop(context.Background(), c.StopCh), config)
