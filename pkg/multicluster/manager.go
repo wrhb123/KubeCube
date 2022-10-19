@@ -69,7 +69,7 @@ func newMultiClusterMgr() *MultiClustersMgr {
 	c := new(InternalCluster)
 	c.StopCh = make(chan struct{})
 	c.Config = config
-	c.Transport = &ts
+	c.transport = &ts
 	c.Type = LocalCluster
 	c.Client, err = client.NewClientFor(exit.SetupCtxWithStop(context.Background(), c.StopCh), config)
 	if err != nil {
@@ -108,7 +108,7 @@ type InternalCluster struct {
 	Config *rest.Config
 
 	// Transport bind to a real cluster round tripper
-	Transport *http.RoundTripper
+	transport *http.RoundTripper
 
 	// Version the k8s Version about internal cluster
 	Version *version.Info
@@ -144,7 +144,7 @@ func NewInternalCluster(cluster clusterv1.Cluster) (*InternalCluster, error) {
 	c.Name = cluster.Name
 	c.StopCh = make(chan struct{})
 	c.Config = config
-	c.Transport = &ts
+	c.transport = &ts
 	c.Type = clusterType
 	c.RawCluster = cluster.DeepCopy()
 	c.Client, err = client.NewClientFor(exit.SetupCtxWithStop(context.Background(), c.StopCh), config)
@@ -226,6 +226,14 @@ func (m *MultiClustersMgr) GetClient(cluster string) (client.Client, error) {
 	}
 
 	return c.Client, err
+}
+
+func (m *MultiClustersMgr) GetTransport(cluster string) (*http.RoundTripper, error) {
+	c, err := m.Get(cluster)
+	if err != nil {
+		return nil, err
+	}
+	return c.transport, err
 }
 
 func (m *MultiClustersMgr) Version(cluster string) (*version.Info, error) {

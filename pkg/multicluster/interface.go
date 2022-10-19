@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/kubecube-io/kubecube/pkg/multicluster/client"
 	"k8s.io/apimachinery/pkg/version"
+	"net/http"
 )
 
 // Manager access to internal cluster
@@ -40,6 +41,8 @@ type Manager interface {
 
 	// GetClient get client for cluster by name
 	GetClient(cluster string) (client.Client, error)
+
+	GetTransport(cluster string) (*http.RoundTripper, error)
 
 	// ListClustersByType list clusters by given type
 	ListClustersByType(t clusterType) []*InternalCluster

@@ -154,7 +154,12 @@ func (h *ProxyHandler) ProxyHandle(c *gin.Context) {
 		response.FailReturn(c, errcode.CustomReturn(http.StatusBadRequest, err.Error()))
 		return
 	}
-
+	transport, err := multicluster.Interface().GetTransport(cluster)
+	if err != nil {
+		clog.Error(err.Error())
+		response.FailReturn(c, errcode.CustomReturn(http.StatusBadRequest, err.Error()))
+		return
+	}
 	_, _, gvr, err := conversion.ParseURL(url)
 	if err != nil {
 		clog.Error(err.Error())
@@ -215,7 +220,7 @@ func (h *ProxyHandler) ProxyHandle(c *gin.Context) {
 		filter.RawGvr = gvr
 	}
 
-	requestProxy := &httputil.ReverseProxy{Director: director, Transport: *internalCluster.Transport, ModifyResponse: filter.ModifyResponse, ErrorHandler: errorHandler}
+	requestProxy := &httputil.ReverseProxy{Director: director, Transport: *transport, ModifyResponse: filter.ModifyResponse, ErrorHandler: errorHandler}
 
 	// trim auth token here
 	c.Request.Header.Del(constants.AuthorizationHeader)
