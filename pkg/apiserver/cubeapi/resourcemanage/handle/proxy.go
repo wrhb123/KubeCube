@@ -181,9 +181,10 @@ func (h *ProxyHandler) ProxyHandle(c *gin.Context) {
 			clog.Error("Could not parse host, host: %s , err: %v", internalCluster.Config.Host, err)
 			response.FailReturn(c, errcode.CustomReturn(http.StatusBadRequest, "Could not parse host, host: %s , err: %v", internalCluster.Config.Host, err))
 		}
+		uri.RawQuery = c.Request.URL.RawQuery
+		uri.Path = url
 		req.URL = uri
 		req.Host = internalCluster.Config.Host
-		req.URL.Path = url
 
 		if needConvert {
 			// replace request body and url if need
